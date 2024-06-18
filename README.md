@@ -55,3 +55,8 @@ To run this project, you'll need to install the required packages. You can do th
 
 ```bash
 pip install -r requirements.txt
+```
+
+## Note
+
+Images used for testing should go in /img

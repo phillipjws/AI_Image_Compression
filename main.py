@@ -34,6 +34,10 @@ def setup_genetic_algo(image):
     pass
 
 
+def save_best_compressed_image(best_individual, image_path):
+    pass
+
+
 def main(image_path):
     image = load_image(image_path)
     toolbox = setup_genetic_algo(image)
