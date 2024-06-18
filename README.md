@@ -1,28 +1,11 @@
 # ECE470Project
 
-# Image Compression using Genetic Algorithms
-
-This project aims to reduce the file size of high-resolution images while maintaining visual quality using Genetic Algorithms (GA). By optimizing the compression parameters, we can achieve efficient storage and transmission of images.
-
-## Problem Statement and Motivation
-
-### Problem
-High-resolution images consume significant storage space and bandwidth. Traditional methods for reducing file size often lead to a loss in image quality. This project uses Genetic Algorithms to find the optimal balance between file size and image quality.
-
-### Importance
-- Reduces storage costs.
-- Saves bandwidth during transmission.
-- Enhances user experience with faster load and download times.
-
-### Why AI Techniques
-Genetic Algorithms can explore large and complex search spaces, making them capable of finding the best solutions quickly and efficiently.
-
-## Tasks and Workflow
+## Tasks
 
 ### Task 1: Problem Definition and Setup
 - **Objective**: Define the problem and set up the environment.
 - **Steps**:
-  1. Define the objective function to minimize file size while maintaining visual quality.
+  1. Decide how to reduce the file size while keeping good image quality.
   2. Set up the required packages and dependencies.
 
 ### Task 2: Load and Preprocess Image
@@ -35,7 +18,7 @@ Genetic Algorithms can explore large and complex search spaces, making them capa
 - **Objective**: Create a function to evaluate the quality and size of the compressed image.
 - **Steps**:
   1. Implement the fitness function to balance image quality and file size.
-  2. Define quality and size calculation methods.
+  2. Define quality and size measurements.
 
 ### Task 4: Initialize Genetic Algorithm
 - **Objective**: Set up the Genetic Algorithm parameters and initial population.
