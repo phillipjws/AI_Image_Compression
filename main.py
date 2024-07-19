@@ -1,3 +1,4 @@
+import random
 import cv2
 from deap import base, creator, tools, algorithms
 import numpy as np
@@ -17,27 +18,20 @@ def calculate_mse(individual, image):
     # Calculate the Mean Squared Error of the two images
     squared_diff = (individual - image) ** 2
     mse = np.mean(squared_diff)
+    return mse
 
-# I'm using peak signal to noise ratio for the fitness function
-def fitness_function(individual, image, fitness):
-    # image parameter will be the original image that im comparing the individual to.
-    mse = calculate_mse(individual, image)
 
+def fitness_function(individual, image):
+    # Compress the image and evaluate its fitness based on PSNR
+    compressed_image_path = compress_image(image, int(individual[0] * 100))
+    compressed_image = load_image(compressed_image_path)
+    
+    mse = calculate_mse(compressed_image, image)
     MAX = 255.0  # Maximum pixel value for 8-bit images
     psnr = 10 * np.log10((MAX ** 2) / mse)
+    
+    return psnr,
 
-    if psnr > fitness:
-        return False
-    else:
-        return True
-
-# Can probably use a library for this, not too sure how ATM
-def calculate_quality(individual, image):
-    pass
-
-
-def calculate_file_size(file_path):
-    return os.path.getsize(file_path)
 
 def compress_image(image, compression_quality):
     # Compress an image and save it to a temporary file to measure file size
@@ -46,19 +40,37 @@ def compress_image(image, compression_quality):
     return compressed_image_path
 
 
-# I think I know how to do all this, DEAP makes it pretty easy
 def setup_genetic_algo(image):
-    pass
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMax)
+
+    toolbox = base.Toolbox()
+    toolbox.register("attr_float", random.uniform, 0, 1)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=1)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+    toolbox.register("evaluate", fitness_function, image=image)
+    toolbox.register("mate", tools.cxBlend, alpha=0.5)
+    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.2, indpb=0.2)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+
+    return toolbox
 
 
 def save_best_compressed_image(best_individual, image_path):
-    pass
+    original_image = load_image(image_path)
+    compressed_image_path = compress_image(original_image, int(best_individual[0] * 100))
+    
+    output_path = "compressed_" + image_path.split('/')[-1]
+    os.rename(compressed_image_path, output_path)
+    
+    print(f"Best compressed image saved as {output_path}")
 
 
 def main(image_path):
     image = load_image(image_path)
-    toolbox = setup_ga(image)
-    population = toolbox.population(n=50)  # Adjust population size
+    toolbox = setup_genetic_algo(image)
+    population = toolbox.population(n=50)  # Population size
 
     NGEN = 40  # Number of generations
     CXPB, MUTPB = 0.5, 0.2  # Crossover and mutation probabilities
@@ -76,7 +88,7 @@ def main(image_path):
     print("Best individual:", best_ind)
 
     # Save the best compressed image
-    save_compressed_image(image_path, best_ind)
+    save_best_compressed_image(best_ind, image_path)
 
 
 if __name__ == "__main__":
