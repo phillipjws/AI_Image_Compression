@@ -13,31 +13,64 @@ def load_image(image_path):
     return np.array(image)
 
 
-def calculate_mse(individual, image):
-    # assuming individual and image are both numpy arrays
-    # Calculate the Mean Squared Error of the two images
-    squared_diff = (individual - image) ** 2
-    mse = np.mean(squared_diff)
-    return mse
+def calculate_mse(imageA, imageB):
+    if imageA.shape != imageB.shape:
+        imageA = cv2.resize(imageA, (imageB.shape[1], imageB.shape[0]))
+    err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
+    err /= float(imageA.shape[0] * imageA.shape[1])
+    return err
 
 
 def fitness_function(individual, image):
-    # Compress the image and evaluate its fitness based on PSNR
-    compressed_image_path = compress_image(image, int(individual[0] * 100))
+    compression_quality = int(individual[0] * 100)
+    resolution_scale = individual[1]
+    color_depth = int(individual[2] * 256)
+
+    compressed_image_path = compress_image(image, compression_quality, resolution_scale, color_depth)
     compressed_image = load_image(compressed_image_path)
-    
+
     mse = calculate_mse(compressed_image, image)
-    MAX = 255.0  # Maximum pixel value for 8-bit images
+    MAX = 255.0
     psnr = 10 * np.log10((MAX ** 2) / mse)
-    
     return psnr,
 
 
-def compress_image(image, compression_quality):
-    # Compress an image and save it to a temporary file to measure file size
+def compress_image(image, compression_quality, resolution_scale, color_depth):
+    if color_depth == 0:
+        color_depth = 1
+
+    height, width, channels = image.shape
+    new_width = int(width * resolution_scale)
+    new_height = int(height * resolution_scale)
+    resized_image = cv2.resize(image, (new_width, new_height))
+
+    scale_factor = 256 // color_depth
+    quantized_image = (resized_image // scale_factor) * scale_factor
+    pil_image = Image.fromarray(quantized_image.astype('uint8'), 'RGB')
+
     compressed_image_path = 'temp_compressed.jpg'
-    cv2.imwrite(compressed_image_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
+    pil_image.save(compressed_image_path, quality=compression_quality, format='JPEG')
     return compressed_image_path
+
+
+def save_best_compressed_image(best_individual, image_path):
+    original_image = load_image(image_path)
+    
+    compression_quality = int(best_individual[0] * 100)
+    resolution_scale = best_individual[1]
+    color_depth = int(best_individual[2] * 256)
+
+    compressed_image_path = compress_image(original_image, compression_quality, resolution_scale, color_depth)
+    
+    output_path = "compressed_" + image_path.split('/')[-1]
+    os.rename(compressed_image_path, output_path)
+    
+    print(f"Best compressed image saved as {output_path}")
+
+
+def log_fitness(gen, best_fitness, avg_fitness):
+    with open("fitness_log.txt", "a") as log_file:
+        log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
 
 
 def setup_genetic_algo(image):
@@ -46,48 +79,58 @@ def setup_genetic_algo(image):
 
     toolbox = base.Toolbox()
     toolbox.register("attr_float", random.uniform, 0, 1)
-    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=1)
+    toolbox.register("attr_scale", random.uniform, 0.5, 1)
+    toolbox.register("attr_depth", random.uniform, 8/256, 1)
+
+    toolbox.register("individual", tools.initCycle, creator.Individual,
+                     (toolbox.attr_float, toolbox.attr_scale, toolbox.attr_depth), n=1)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    toolbox.register("evaluate", fitness_function, image=image)
-    toolbox.register("mate", tools.cxBlend, alpha=0.5)
-    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.2, indpb=0.2)
-    toolbox.register("select", tools.selTournament, tournsize=3)
-
+    toolbox.register("evaluate", fitness_function, image=image)  # Pass image as a keyword argument
+    toolbox.register("mate", tools.cxUniform, indpb=0.5)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.2)
+    toolbox.register("select", tools.selRoulette)
     return toolbox
-
-
-def save_best_compressed_image(best_individual, image_path):
-    original_image = load_image(image_path)
-    compressed_image_path = compress_image(original_image, int(best_individual[0] * 100))
-    
-    output_path = "compressed_" + image_path.split('/')[-1]
-    os.rename(compressed_image_path, output_path)
-    
-    print(f"Best compressed image saved as {output_path}")
 
 
 def main(image_path):
     image = load_image(image_path)
     toolbox = setup_genetic_algo(image)
-    population = toolbox.population(n=50)  # Population size
+    population = toolbox.population(n=100)
 
-    NGEN = 40  # Number of generations
-    CXPB, MUTPB = 0.5, 0.2  # Crossover and mutation probabilities
+    NGEN = 100
+    CXPB, MUTPB = 0.7, 0.2
+
+    best_fitness_previous = float('-inf')
 
     for gen in range(NGEN):
+        # Ensure all individuals are evaluated
+        for ind in population:
+            ind.fitness.values = toolbox.evaluate(ind)  # No need to pass image, already configured
+
         offspring = algorithms.varAnd(population, toolbox, CXPB, MUTPB)
-        fits = list(map(toolbox.evaluate, offspring))
-        for fit, ind in zip(fits, offspring):
-            ind.fitness.values = fit
+        for ind in offspring:
+            ind.fitness.values = toolbox.evaluate(ind)  # Corrected call
+
+        # Calculate average fitness safely
+        valid_fitnesses = [ind.fitness.values[0] for ind in population if ind.fitness.valid]
+        avg_fitness = np.mean(valid_fitnesses) if valid_fitnesses else 0
+        
         population = toolbox.select(offspring, k=len(population))
-        fits = [ind.fitness.values[0] for ind in population]
-        print(f"Generation {gen}, Best fitness: {max(fits)}")
+
+        best_fitness = max(valid_fitnesses) if valid_fitnesses else 0
+        print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}")
+        log_fitness(gen, best_fitness, avg_fitness)
+
+        # Adjust mutation probability dynamically
+        if best_fitness > best_fitness_previous:
+            best_fitness_previous = best_fitness
+            MUTPB = max(0.1, MUTPB - 0.01)  # Decrease mutation rate gradually
+        else:
+            MUTPB = min(0.3, MUTPB + 0.02)  # Increase mutation rate if no improvement
 
     best_ind = tools.selBest(population, 1)[0]
     print("Best individual:", best_ind)
-
-    # Save the best compressed image
     save_best_compressed_image(best_ind, image_path)
 
 
