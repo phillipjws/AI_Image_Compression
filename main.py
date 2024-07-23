@@ -25,14 +25,12 @@ def fitness_function(individual, image):
     compression_quality = int(individual[0] * 100)
     resolution_scale = individual[1]
     color_depth = int(individual[2] * 256)
-
     compressed_image_path = compress_image(image, compression_quality, resolution_scale, color_depth)
     compressed_image = load_image(compressed_image_path)
-
     mse = calculate_mse(compressed_image, image)
-    MAX = 255.0
-    psnr = 10 * np.log10((MAX ** 2) / mse)
-    return psnr,
+    psnr = 10 * np.log10((255.0 ** 2) / mse)
+    file_size = os.path.getsize(compressed_image_path)
+    return (psnr, -file_size)
 
 
 def compress_image(image, compression_quality, resolution_scale, color_depth):
@@ -42,6 +40,8 @@ def compress_image(image, compression_quality, resolution_scale, color_depth):
     height, width, channels = image.shape
     new_width = int(width * resolution_scale)
     new_height = int(height * resolution_scale)
+    new_width = max(new_width, 1)
+    new_height = max(new_height, 1)
     resized_image = cv2.resize(image, (new_width, new_height))
 
     scale_factor = 256 // color_depth
@@ -73,33 +73,34 @@ def log_fitness(gen, best_fitness, avg_fitness):
         log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
 
 
-def setup_genetic_algo(image):
-    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-    creator.create("Individual", list, fitness=creator.FitnessMax)
+def setup_genetic_algo(image_path):
+    creator.create("FitnessMulti", base.Fitness, weights=(1.0, 1.0))
+    creator.create("Individual", list, fitness=creator.FitnessMulti)
 
     toolbox = base.Toolbox()
     toolbox.register("attr_float", random.uniform, 0, 1)
     toolbox.register("attr_scale", random.uniform, 0.5, 1)
     toolbox.register("attr_depth", random.uniform, 8/256, 1)
-
     toolbox.register("individual", tools.initCycle, creator.Individual,
                      (toolbox.attr_float, toolbox.attr_scale, toolbox.attr_depth), n=1)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
-    toolbox.register("evaluate", fitness_function, image=image)  # Pass image as a keyword argument
+    
+    # Load the image once and use it for evaluating individuals
+    image = load_image(image_path)
+    toolbox.register("evaluate", fitness_function, image=image)
+    
     toolbox.register("mate", tools.cxUniform, indpb=0.5)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.2)
-    toolbox.register("select", tools.selRoulette)
+    toolbox.register("select", tools.selNSGA2)
     return toolbox
 
 
 def main(image_path):
-    image = load_image(image_path)
-    toolbox = setup_genetic_algo(image)
-    population = toolbox.population(n=100)
+    toolbox = setup_genetic_algo(image_path)
+    population = toolbox.population(n=1000)
 
-    NGEN = 100
-    CXPB, MUTPB = 0.7, 0.2
+    NGEN = 200
+    CXPB, MUTPB = 0.7, 0.3
 
     best_fitness_previous = float('-inf')
 
