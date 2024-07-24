@@ -69,7 +69,7 @@ def save_best_compressed_image(best_individual, image_path):
 
 
 def log_fitness(gen, best_fitness, avg_fitness):
-    with open("fitness_log.txt", "a") as log_file:
+    with open("high_contrast_fitness_log.txt", "a") as log_file:
         log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
 
 
@@ -107,13 +107,12 @@ def main(image_path):
     for gen in range(NGEN):
         # Ensure all individuals are evaluated
         for ind in population:
-            ind.fitness.values = toolbox.evaluate(ind)  # No need to pass image, already configured
+            ind.fitness.values = toolbox.evaluate(ind)
 
         offspring = algorithms.varAnd(population, toolbox, CXPB, MUTPB)
         for ind in offspring:
-            ind.fitness.values = toolbox.evaluate(ind)  # Corrected call
+            ind.fitness.values = toolbox.evaluate(ind)
 
-        # Calculate average fitness safely
         valid_fitnesses = [ind.fitness.values[0] for ind in population if ind.fitness.valid]
         avg_fitness = np.mean(valid_fitnesses) if valid_fitnesses else 0
         
@@ -123,7 +122,6 @@ def main(image_path):
         print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}")
         log_fitness(gen, best_fitness, avg_fitness)
 
-        # Adjust mutation probability dynamically
         if best_fitness > best_fitness_previous:
             best_fitness_previous = best_fitness
             MUTPB = max(0.1, MUTPB - 0.01)  # Decrease mutation rate gradually
