@@ -69,7 +69,7 @@ def save_best_compressed_image(best_individual, image_path):
 
 
 def log_fitness(gen, best_fitness, avg_fitness):
-    with open("high_contrast_fitness_log.txt", "a") as log_file:
+    with open("fitness_log.txt", "a") as log_file:
         log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
 
 
@@ -97,10 +97,14 @@ def setup_genetic_algo(image_path):
 
 def main(image_path):
     toolbox = setup_genetic_algo(image_path)
-    population = toolbox.population(n=1000)
+    population = 1000
+    population = toolbox.population(n=population)
 
     NGEN = 200
     CXPB, MUTPB = 0.7, 0.3
+
+    with open("fitness_log.txt", "a") as log_file:
+        log_file.write(f"Population: {population}, Number of Generations: {NGEN}")
 
     best_fitness_previous = float('-inf')
 
