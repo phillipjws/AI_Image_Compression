@@ -10,7 +10,8 @@ import os
 def load_image(image_path):
     image = Image.open(image_path)
     image = image.convert("RGB")
-    return np.array(image)
+    file_size = os.path.getsize(image_path)
+    return np.array(image), file_size
 
 
 def calculate_mse(imageA, imageB):
@@ -21,16 +22,19 @@ def calculate_mse(imageA, imageB):
     return err
 
 
-def fitness_function(individual, image):
+def fitness_function(individual, image, original_file_size):
     compression_quality = int(individual[0] * 100)
     resolution_scale = individual[1]
     color_depth = int(individual[2] * 256)
     compressed_image_path = compress_image(image, compression_quality, resolution_scale, color_depth)
-    compressed_image = load_image(compressed_image_path)
+    compressed_image, _ = load_image(compressed_image_path)
     mse = calculate_mse(compressed_image, image)
     psnr = 10 * np.log10((255.0 ** 2) / mse)
     file_size = os.path.getsize(compressed_image_path)
-    return (psnr, -file_size)
+
+    size_penalty = 0 if file_size < original_file_size else (file_size - original_file_size)
+
+    return (psnr, -file_size - size_penalty)  # Adding size penalty
 
 
 def compress_image(image, compression_quality, resolution_scale, color_depth):
@@ -46,6 +50,7 @@ def compress_image(image, compression_quality, resolution_scale, color_depth):
 
     scale_factor = 256 // color_depth
     quantized_image = (resized_image // scale_factor) * scale_factor
+    quantized_image = np.clip(quantized_image, 0, 255)
     pil_image = Image.fromarray(quantized_image.astype('uint8'), 'RGB')
 
     compressed_image_path = 'temp_compressed.jpg'
@@ -54,7 +59,7 @@ def compress_image(image, compression_quality, resolution_scale, color_depth):
 
 
 def save_best_compressed_image(best_individual, image_path):
-    original_image = load_image(image_path)
+    original_image, _ = load_image(image_path)
     
     compression_quality = int(best_individual[0] * 100)
     resolution_scale = best_individual[1]
@@ -80,7 +85,7 @@ def setup_genetic_algo(image_path):
     toolbox = base.Toolbox()
     toolbox.register("attr_float", random.uniform, 0, 1)
     toolbox.register("attr_scale", random.uniform, 0.5, 1)
-    toolbox.register("attr_depth", random.uniform, 8/256, 1)
+    toolbox.register("attr_depth", random.uniform, 8/256, 1 - 1e-10)
     toolbox.register("individual", tools.initCycle, creator.Individual,
                      (toolbox.attr_float, toolbox.attr_scale, toolbox.attr_depth), n=1)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -97,14 +102,18 @@ def setup_genetic_algo(image_path):
 
 def main(image_path):
     toolbox = setup_genetic_algo(image_path)
-    population = 1000
-    population = toolbox.population(n=population)
 
-    NGEN = 200
+    original_image, original_file_size = load_image(image_path)
+    toolbox.register("evaluate", fitness_function, image=original_image, original_file_size=original_file_size)
+
+    population_n = 200
+    population = toolbox.population(n=population_n)
+
+    NGEN = 100
     CXPB, MUTPB = 0.7, 0.3
 
     with open("fitness_log.txt", "a") as log_file:
-        log_file.write(f"Population: {population}, Number of Generations: {NGEN}")
+        log_file.write(f"Population: {population_n}, Number of Generations: {NGEN}")
 
     best_fitness_previous = float('-inf')
 
