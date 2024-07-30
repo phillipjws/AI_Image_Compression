@@ -107,10 +107,10 @@ def main(image_path):
     original_image, original_file_size = load_image(image_path)
     toolbox.register("evaluate", fitness_function, image=original_image, original_file_size=original_file_size)
 
-    population_n = 100
+    population_n = 300
     population = toolbox.population(n=population_n)
 
-    NGEN = 200
+    NGEN = 400
     CXPB, MUTPB = 0.7, 0.3
 
     base, _ = os.path.splitext(image_path)
