@@ -1,5 +1,0 @@
-Population: 100, Number of Generations: 200
-Generation 0, Best fitness: 32.9490196387873, Average fitness: 25.528403916812874
-Generation 1, Best fitness: 32.718445239118566, Average fitness: 25.05819827274071
-Generation 2, Best fitness: 32.4030971777883, Average fitness: 24.907718093799676
-Generation 3, Best fitness: 32.4030971777883, Average fitness: 25.007762430398152
