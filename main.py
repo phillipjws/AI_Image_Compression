@@ -73,8 +73,9 @@ def save_best_compressed_image(best_individual, image_path):
     print(f"Best compressed image saved as {output_path}")
 
 
-def log_fitness(gen, best_fitness, avg_fitness):
-    with open("fitness_log.txt", "a") as log_file:
+def log_fitness(gen, best_fitness, avg_fitness, image_path):
+    base, _ = os.path.splitext(image_path)
+    with open(f"{base}_fitness_log.txt", "a") as log_file:
         log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
 
 
@@ -106,14 +107,15 @@ def main(image_path):
     original_image, original_file_size = load_image(image_path)
     toolbox.register("evaluate", fitness_function, image=original_image, original_file_size=original_file_size)
 
-    population_n = 200
+    population_n = 100
     population = toolbox.population(n=population_n)
 
-    NGEN = 100
+    NGEN = 200
     CXPB, MUTPB = 0.7, 0.3
 
-    with open("fitness_log.txt", "a") as log_file:
-        log_file.write(f"Population: {population_n}, Number of Generations: {NGEN}")
+    base, _ = os.path.splitext(image_path)
+    with open(f"{base}_fitness_log.txt", "a") as log_file:
+        log_file.write(f"Population: {population_n}, Number of Generations: {NGEN}\n")
 
     best_fitness_previous = float('-inf')
 
@@ -133,7 +135,7 @@ def main(image_path):
 
         best_fitness = max(valid_fitnesses) if valid_fitnesses else 0
         print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}")
-        log_fitness(gen, best_fitness, avg_fitness)
+        log_fitness(gen, best_fitness, avg_fitness, image_path)
 
         if best_fitness > best_fitness_previous:
             best_fitness_previous = best_fitness
