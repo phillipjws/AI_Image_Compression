@@ -34,7 +34,7 @@ def fitness_function(individual, image, original_file_size):
 
     size_penalty = 0 if file_size < original_file_size else (file_size - original_file_size)
 
-    return (psnr, -file_size - size_penalty)  # Adding size penalty
+    return (psnr, -file_size - size_penalty)
 
 
 def compress_image(image, compression_quality, resolution_scale, color_depth):
@@ -67,16 +67,17 @@ def save_best_compressed_image(best_individual, image_path):
 
     compressed_image_path = compress_image(original_image, compression_quality, resolution_scale, color_depth)
     
-    output_path = "compressed_" + image_path.split('/')[-1]
+    output_path = "updated_compressed_" + image_path.split('/')[-1]
     os.rename(compressed_image_path, output_path)
     
     print(f"Best compressed image saved as {output_path}")
 
 
-def log_fitness(gen, best_fitness, avg_fitness, image_path):
+def log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path):
     base, _ = os.path.splitext(image_path)
     with open(f"{base}_fitness_log.txt", "a") as log_file:
-        log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}\n")
+        log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}, "
+                       f"Best PSNR: {best_psnr}, Best MSE: {best_mse}\n")
 
 
 def setup_genetic_algo(image_path):
@@ -107,21 +108,14 @@ def main(image_path):
     original_image, original_file_size = load_image(image_path)
     toolbox.register("evaluate", fitness_function, image=original_image, original_file_size=original_file_size)
 
-<<<<<<< Updated upstream
-    population_n = 300
+    population_n = 100
     population = toolbox.population(n=population_n)
 
-    NGEN = 400
-=======
-    population_n = 700
-    population = toolbox.population(n=population_n)
-
-    NGEN = 700
->>>>>>> Stashed changes
+    NGEN = 100
     CXPB, MUTPB = 0.7, 0.3
 
     base, _ = os.path.splitext(image_path)
-    with open(f"{base}_fitness_log.txt", "a") as log_file:
+    with open(f"{base}_updated_log.txt", "a") as log_file:
         log_file.write(f"Population: {population_n}, Number of Generations: {NGEN}\n")
 
     best_fitness_previous = float('-inf')
@@ -140,9 +134,17 @@ def main(image_path):
         
         population = toolbox.select(offspring, k=len(population))
 
-        best_fitness = max(valid_fitnesses) if valid_fitnesses else 0
-        print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}")
-        log_fitness(gen, best_fitness, avg_fitness, image_path)
+        best_ind = tools.selBest(population, 1)[0]
+        best_fitness = best_ind.fitness.values[0]
+
+        # Calculate PSNR and MSE for the best individual
+        compressed_image_path = compress_image(original_image, int(best_ind[0] * 100), best_ind[1], int(best_ind[2] * 256))
+        compressed_image, _ = load_image(compressed_image_path)
+        best_mse = calculate_mse(original_image, compressed_image)
+        best_psnr = 10 * np.log10((255.0 ** 2) / best_mse)
+
+        print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}, PSNR of best individual: {best_psnr}, MSE of best individual: {best_mse}")
+        log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path)
 
         if best_fitness > best_fitness_previous:
             best_fitness_previous = best_fitness
