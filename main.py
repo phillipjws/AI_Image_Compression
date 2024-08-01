@@ -79,12 +79,12 @@ def save_best_compressed_image(best_individual, image_path):
     print(f"Best compressed image saved as {output_path}")
 
 
-def log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path):
+def log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path, file_size):
     base, _ = os.path.splitext(image_path)
     with open(f"{base}_updated_log.txt", "a") as log_file:
         log_file.write(
             f"Generation {gen:.4f}, Best fitness: {best_fitness:.4f}, Average fitness: {avg_fitness:.4f}, "
-            f"Best PSNR: {best_psnr:.4f}, Best MSE: {best_mse:.4f}\n"
+            f"PSNR: {best_psnr:.4f}, MSE: {best_mse:.4f}, File size (in bytes): {file_size}\n"
         )
 
 
@@ -164,12 +164,13 @@ def main(image_path):
         compressed_image, _ = load_image(compressed_image_path)
         best_mse = calculate_mse(original_image, compressed_image)
         best_psnr = 10 * np.log10((255.0**2) / best_mse)
+        file_size = os.path.getsize(compressed_image_path)
 
         print(
             f"Generation {gen}, Best fitness: {best_fitness:.4f}, Average fitness: {avg_fitness:.4f}," 
-            f" PSNR of best individual: {best_psnr:.4f}, MSE of best individual: {best_mse:.4f}"
+            f" PSNR: {best_psnr:.4f}, MSE: {best_mse:.4f}, File size (in bytes): {file_size}"
         )
-        log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path)
+        log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path, file_size)
 
         if best_fitness > best_fitness_previous:
             best_fitness_previous = best_fitness
