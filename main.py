@@ -26,13 +26,17 @@ def fitness_function(individual, image, original_file_size):
     compression_quality = int(individual[0] * 100)
     resolution_scale = individual[1]
     color_depth = int(individual[2] * 256)
-    compressed_image_path = compress_image(image, compression_quality, resolution_scale, color_depth)
+    compressed_image_path = compress_image(
+        image, compression_quality, resolution_scale, color_depth
+    )
     compressed_image, _ = load_image(compressed_image_path)
     mse = calculate_mse(compressed_image, image)
-    psnr = 10 * np.log10((255.0 ** 2) / mse)
+    psnr = 10 * np.log10((255.0**2) / mse)
     file_size = os.path.getsize(compressed_image_path)
 
-    size_penalty = 0 if file_size < original_file_size else (file_size - original_file_size)
+    size_penalty = (
+        0 if file_size < original_file_size else (file_size - original_file_size)
+    )
 
     return (psnr, -file_size - size_penalty)
 
@@ -51,33 +55,37 @@ def compress_image(image, compression_quality, resolution_scale, color_depth):
     scale_factor = 256 // color_depth
     quantized_image = (resized_image // scale_factor) * scale_factor
     quantized_image = np.clip(quantized_image, 0, 255)
-    pil_image = Image.fromarray(quantized_image.astype('uint8'), 'RGB')
+    pil_image = Image.fromarray(quantized_image.astype("uint8"), "RGB")
 
-    compressed_image_path = 'temp_compressed.jpg'
-    pil_image.save(compressed_image_path, quality=compression_quality, format='JPEG')
+    compressed_image_path = "temp_compressed.jpg"
+    pil_image.save(compressed_image_path, quality=compression_quality, format="JPEG")
     return compressed_image_path
 
 
 def save_best_compressed_image(best_individual, image_path):
     original_image, _ = load_image(image_path)
-    
+
     compression_quality = int(best_individual[0] * 100)
     resolution_scale = best_individual[1]
     color_depth = int(best_individual[2] * 256)
 
-    compressed_image_path = compress_image(original_image, compression_quality, resolution_scale, color_depth)
-    
-    output_path = "updated_compressed_" + image_path.split('/')[-1]
+    compressed_image_path = compress_image(
+        original_image, compression_quality, resolution_scale, color_depth
+    )
+
+    output_path = "updated_compressed_" + image_path.split("/")[-1]
     os.rename(compressed_image_path, output_path)
-    
+
     print(f"Best compressed image saved as {output_path}")
 
 
 def log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path):
     base, _ = os.path.splitext(image_path)
-    with open(f"{base}_fitness_log.txt", "a") as log_file:
-        log_file.write(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}, "
-                       f"Best PSNR: {best_psnr}, Best MSE: {best_mse}\n")
+    with open(f"{base}_updated_log.txt", "a") as log_file:
+        log_file.write(
+            f"Generation {gen:.4f}, Best fitness: {best_fitness:.4f}, Average fitness: {avg_fitness:.4f}, "
+            f"Best PSNR: {best_psnr:.4f}, Best MSE: {best_mse:.4f}\n"
+        )
 
 
 def setup_genetic_algo(image_path):
@@ -87,15 +95,20 @@ def setup_genetic_algo(image_path):
     toolbox = base.Toolbox()
     toolbox.register("attr_float", random.uniform, 0, 1)
     toolbox.register("attr_scale", random.uniform, 0.5, 1)
-    toolbox.register("attr_depth", random.uniform, 8/256, 1 - 1e-10)
-    toolbox.register("individual", tools.initCycle, creator.Individual,
-                     (toolbox.attr_float, toolbox.attr_scale, toolbox.attr_depth), n=1)
+    toolbox.register("attr_depth", random.uniform, 8 / 256, 1 - 1e-10)
+    toolbox.register(
+        "individual",
+        tools.initCycle,
+        creator.Individual,
+        (toolbox.attr_float, toolbox.attr_scale, toolbox.attr_depth),
+        n=1,
+    )
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    
+
     # Load the image once and use it for evaluating individuals
     image = load_image(image_path)
     toolbox.register("evaluate", fitness_function, image=image)
-    
+
     toolbox.register("mate", tools.cxUniform, indpb=0.5)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.2)
     toolbox.register("select", tools.selNSGA2)
@@ -106,7 +119,12 @@ def main(image_path):
     toolbox = setup_genetic_algo(image_path)
 
     original_image, original_file_size = load_image(image_path)
-    toolbox.register("evaluate", fitness_function, image=original_image, original_file_size=original_file_size)
+    toolbox.register(
+        "evaluate",
+        fitness_function,
+        image=original_image,
+        original_file_size=original_file_size,
+    )
 
     population_n = 100
     population = toolbox.population(n=population_n)
@@ -118,7 +136,7 @@ def main(image_path):
     with open(f"{base}_updated_log.txt", "a") as log_file:
         log_file.write(f"Population: {population_n}, Number of Generations: {NGEN}\n")
 
-    best_fitness_previous = float('-inf')
+    best_fitness_previous = float("-inf")
 
     for gen in range(NGEN):
         # Ensure all individuals are evaluated
@@ -129,21 +147,28 @@ def main(image_path):
         for ind in offspring:
             ind.fitness.values = toolbox.evaluate(ind)
 
-        valid_fitnesses = [ind.fitness.values[0] for ind in population if ind.fitness.valid]
+        valid_fitnesses = [
+            ind.fitness.values[0] for ind in population if ind.fitness.valid
+        ]
         avg_fitness = np.mean(valid_fitnesses) if valid_fitnesses else 0
-        
+
         population = toolbox.select(offspring, k=len(population))
 
         best_ind = tools.selBest(population, 1)[0]
         best_fitness = best_ind.fitness.values[0]
 
         # Calculate PSNR and MSE for the best individual
-        compressed_image_path = compress_image(original_image, int(best_ind[0] * 100), best_ind[1], int(best_ind[2] * 256))
+        compressed_image_path = compress_image(
+            original_image, int(best_ind[0] * 100), best_ind[1], int(best_ind[2] * 256)
+        )
         compressed_image, _ = load_image(compressed_image_path)
         best_mse = calculate_mse(original_image, compressed_image)
-        best_psnr = 10 * np.log10((255.0 ** 2) / best_mse)
+        best_psnr = 10 * np.log10((255.0**2) / best_mse)
 
-        print(f"Generation {gen}, Best fitness: {best_fitness}, Average fitness: {avg_fitness}, PSNR of best individual: {best_psnr}, MSE of best individual: {best_mse}")
+        print(
+            f"Generation {gen}, Best fitness: {best_fitness:.4f}, Average fitness: {avg_fitness:.4f}," 
+            f" PSNR of best individual: {best_psnr:.4f}, MSE of best individual: {best_mse:.4f}"
+        )
         log_fitness(gen, best_fitness, avg_fitness, best_psnr, best_mse, image_path)
 
         if best_fitness > best_fitness_previous:
