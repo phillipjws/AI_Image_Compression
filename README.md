@@ -1,4 +1,4 @@
-# ECE470Project
+# AI Image Compression Using a Genetic Algorithm
 
 ## Installation
 
